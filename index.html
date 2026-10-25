@@ -1,0 +1,179 @@
+
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>O‘zbekiston Driving Simulator</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;overflow:hidden;background:#87ceeb;font-family:Arial,sans-serif}
+#hud{position:fixed;top:14px;left:14px;z-index:5;color:white;background:#101827df;padding:15px;border-radius:14px;line-height:1.8;min-width:200px}
+#hud strong{color:#55e6a5}
+#camera{position:fixed;top:14px;right:14px;z-index:5;padding:13px 17px;border:0;border-radius:12px;background:#ffffffeb;font-weight:bold;cursor:pointer}
+#help{position:fixed;bottom:15px;left:50%;transform:translateX(-50%);background:#101827df;color:white;padding:12px 18px;border-radius:12px;text-align:center;width:max-content;max-width:94%;font-size:13px}
+#loading{position:fixed;inset:0;display:grid;place-items:center;background:#111827;color:white;z-index:10;font-size:18px}
+</style>
+</head>
+<body>
+<div id="loading">3D dunyo yuklanmoqda...</div>
+<div id="hud">
+  🇺🇿 <b>UZBEKISTAN DRIVE</b><br>
+  Shahar: <strong>Toshkent</strong><br>
+  Mashina: <strong>Cobalt — prototip</strong><br>
+  Tezlik: <strong><span id="speed">0</span> km/soat</strong><br>
+  Kamera: <strong id="view">Tashqi</strong>
+</div>
+<button id="camera">🎥 Kamera: C</button>
+<div id="help">W / ↑ — yurish · S / ↓ — tormoz · A D / ← → — burilish · C — kamera</div>
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js';
+
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x87ceeb);
+scene.fog=new THREE.Fog(0x87ceeb,100,360);
+
+const camera=new THREE.PerspectiveCamera(70,innerWidth/innerHeight,0.1,700);
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth,innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+document.body.appendChild(renderer.domElement);
+
+scene.add(new THREE.HemisphereLight(0xe5f5ff,0x52613c,2));
+const sun=new THREE.DirectionalLight(0xfff0d5,3);
+sun.position.set(-30,60,25);
+sun.castShadow=true;
+scene.add(sun);
+
+const mat=(color,roughness=0.8)=>new THREE.MeshStandardMaterial({color,roughness});
+const grass=mat(0x6e9c53), asphalt=mat(0x343940), line=mat(0xf5f1d9);
+const buildingMats=[0xd5c2a4,0xe8d9bd,0xbcc9cb,0xd1b39a].map(c=>mat(c));
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(600,600),grass);
+ground.rotation.x=-Math.PI/2;ground.position.y=-0.12;ground.receiveShadow=true;scene.add(ground);
+
+const road=new THREE.Mesh(new THREE.PlaneGeometry(15,500),asphalt);
+road.rotation.x=-Math.PI/2;road.position.y=-0.08;scene.add(road);
+for(let z=-245;z<260;z+=10){
+ const dash=new THREE.Mesh(new THREE.BoxGeometry(.16,.025,4.5),line);
+ dash.position.set(0,-.045,z);scene.add(dash);
+}
+for(const x of [-7,7]){
+ const edge=new THREE.Mesh(new THREE.BoxGeometry(.13,.03,500),line);
+ edge.position.set(x,-.04,0);scene.add(edge);
+}
+
+function box(parent,w,h,d,material,x,y,z){
+ const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material);
+ m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m;
+}
+
+// Shahar binolari
+for(let z=-230;z<250;z+=19){
+ for(const side of [-1,1]){
+  const x=side*(13+Math.random()*12),h=7+Math.random()*24;
+  const b=box(scene,7+Math.random()*5,h,9+Math.random()*5,
+  buildingMats[Math.floor(Math.random()*buildingMats.length)],x,h/2,z+(Math.random()-.5)*8);
+  // Derazalar
+  for(let yy=2.5;yy<h-1;yy+=3.2){
+   for(let xx=-2;xx<=2;xx+=2){
+    box(scene,.75,1.05,.06,mat(0x6a9cb0),x+xx,yy,z+5.03);
+   }
+  }
+ }
+}
+
+// Daraxtlar
+function tree(x,z){
+ const trunk= new THREE.Mesh(new THREE.CylinderGeometry(.18,.27,2.1,7),mat(0x765039));
+ trunk.position.set(x,1,z);scene.add(trunk);
+ const crown=new THREE.Mesh(new THREE.SphereGeometry(1.5,9,7),mat(0x367b3e));
+ crown.position.set(x,3,z);crown.scale.y=1.2;scene.add(crown);
+}
+for(let z=-240;z<250;z+=10){
+ tree(-9.5,z);tree(9.5,z+4);
+}
+
+// Mashina: dastlabki soddalashtirilgan 3D prototip
+const car=new THREE.Group();scene.add(car);
+const bodyMat=mat(0xe8e9ec,.3);
+const dark=mat(0x202832,.3);
+const glass= new THREE.MeshStandardMaterial({color:0x6e9db2,metalness:.25,roughness:.18});
+box(car,2.05,.65,4.25,bodyMat,0,.82,0);
+box(car,1.62,.72,2.05,bodyMat,0,1.45,-.28);
+box(car,1.48,.52,1.65,glass,0,1.49,-.28);
+box(car,1.75,.12,.95,bodyMat,0,1.15,-1.42);
+box(car,1.8,.13,.65,bodyMat,0,1.12,1.72);
+for(const x of [-.72,.72]){
+ for(const z of [-1.35,1.35]){
+  const wheel=new THREE.Mesh(new THREE.CylinderGeometry(.39,.39,.22,20),dark);
+  wheel.rotation.z=Math.PI/2;wheel.position.set(x,.43,z);car.add(wheel);
+ }
+}
+for(const x of [-.68,.68]){
+ box(car,.42,.22,.08,mat(0xfff0bc),x,.9,-2.14);
+ box(car,.42,.2,.08,mat(0xc82929),x,.87,2.14);
+}
+// Mashina oldi -Z tomonga qaraydi
+car.position.set(0,0,15);
+
+const keys={};
+addEventListener('keydown',e=>{
+ keys[e.key.toLowerCase()]=true;
+ if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault();
+ if(e.key.toLowerCase()==='c')toggleCamera();
+});
+addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+addEventListener('blur',()=>Object.keys(keys).forEach(k=>keys[k]=false));
+
+let speed=0,steer=0,inside=false;
+function toggleCamera(){
+ inside=!inside;
+ document.getElementById('view').textContent=inside?'Ichki':'Tashqi';
+ document.getElementById('camera').textContent=inside?'🎥 Kamera: Ichki':'🎥 Kamera: Tashqi';
+}
+document.getElementById('camera').onclick=toggleCamera;
+
+const clock=new THREE.Clock();
+function animate(){
+ requestAnimationFrame(animate);
+ const dt=Math.min(clock.getDelta(),.04);
+ if(keys.w||keys.arrowup)speed=Math.min(speed+18*dt,48);
+ else if(keys.s||keys.arrowdown)speed=Math.max(speed-32*dt,-8);
+ else speed*=Math.pow(.35,dt);
+ if(keys[' '])speed*=Math.pow(.03,dt);
+
+ const moving=Math.abs(speed)>.5;
+ if(keys.a||keys.arrowleft)steer=Math.min(steer+2.1*dt,.65);
+ else if(keys.d||keys.arrowright)steer=Math.max(steer-2.1*dt,-.65);
+ else steer*=Math.pow(.04,dt);
+
+ car.rotation.y+=steer*speed*.018*dt;
+ const direction=new THREE.Vector3(Math.sin(car.rotation.y),0,-Math.cos(car.rotation.y));
+ car.position.addScaledVector(direction,speed*dt*.55);
+ car.position.x=THREE.MathUtils.clamp(car.position.x,-5.5,5.5);
+ car.position.z=THREE.MathUtils.clamp(car.position.z,-245,245);
+ document.getElementById('speed').textContent=Math.round(Math.abs(speed)*3.6);
+
+ if(inside){
+  camera.position.copy(car.position).add(new THREE.Vector3(0,1.55,0));
+  const look=car.position.clone().add(direction.multiplyScalar(12));
+  look.y=1.5;camera.lookAt(look);
+ }else{
+  const offset=new THREE.Vector3(0,4.2,8.5).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);
+  camera.position.lerp(car.position.clone().add(offset),1-Math.pow(.001,dt));
+  camera.lookAt(car.position.x,1,car.position.z);
+ }
+ renderer.render(scene,camera);
+}
+addEventListener('resize',()=>{
+ camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();
+ renderer.setSize(innerWidth,innerHeight);
+});
+document.getElementById('loading').style.display='none';
+animate();
+</script>
+</body>
+</html>
